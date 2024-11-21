@@ -17,7 +17,7 @@ def create_model(input_shape, num_classes):
     return model
 
 # Функция для обучения модели
-def train_model(dataset_name):
+def train_model(dataset_name, results):
     # Загрузка датасета
     if dataset_name == "MNIST":
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -43,22 +43,40 @@ def train_model(dataset_name):
     monitor_thread.start()
 
     # Обучение модели
-    model.fit(x_train, y_train, epochs=5, validation_data=(x_test, y_test), verbose=2)
-    print(f"Обучение на датасете {dataset_name} завершено!")
+    history = model.fit(x_train, y_train, epochs=5, validation_data=(x_test, y_test), verbose=2)
+
+    # Вывод метрик после обучения
+    final_loss, final_accuracy = model.evaluate(x_test, y_test, verbose=0)
+    print(f"Результаты модели на датасете {dataset_name}:")
+    print(f"  Loss: {final_loss}")
+    print(f"  Accuracy: {final_accuracy}")
+
+    # Сохранение результатов в общий словарь
+    results[dataset_name] = {
+        "loss": final_loss,
+        "accuracy": final_accuracy
+    }
 
 # Главная функция для запуска параллельных процессов
 def main():
     datasets = ["MNIST", "FashionMNIST"]
-    processes = []
+    manager = multiprocessing.Manager()
+    results = manager.dict()  # Общий словарь для результатов
 
+    processes = []
     for dataset in datasets:
-        process = multiprocessing.Process(target=train_model, args=(dataset,))
+        process = multiprocessing.Process(target=train_model, args=(dataset, results))
         processes.append(process)
         process.start()
 
     # Ожидание завершения всех процессов
     for process in processes:
         process.join()
+
+    # Вывод всех результатов после завершения процессов
+    print("\nСводка результатов:")
+    for dataset, metrics in results.items():
+        print(f"{dataset}: Loss = {metrics['loss']:.4f}, Accuracy = {metrics['accuracy']:.4f}")
 
 if __name__ == "__main__":
     main()
